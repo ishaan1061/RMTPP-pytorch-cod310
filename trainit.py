@@ -78,7 +78,7 @@ if __name__ == "__main__":
     """The code below is used to set up command line inputs. """
     parser = ArgumentParser()
     parser.add_argument("--n_class",
-                        help="Number of types in the dataset, default is 2", type=int, default=5)
+                        help="Number of types in the dataset, default is 2", type=int, default=6)
     parser.add_argument("--hid_dim", type=int, default=1)
     parser.add_argument("--n_layers", type=int, default=1)
     parser.add_argument("--lr", type=float, default=0.01)
