@@ -10,7 +10,7 @@ import numpy as np
 
 def data_process(file_name):
 #change the length of training sequence here
-    seq_len = 7
+    seq_len = 10
 #change length of training sequence here
     f = open(file_name,'r')
     time_data = []
@@ -49,7 +49,7 @@ def data_process(file_name):
 
 def type_process(file_name):
 #change the length of training sequence here
-    seq_len = 7
+    seq_len = 10
 #change length of training sequence here
     f = open(file_name,'r')
     time_data = []
@@ -86,7 +86,7 @@ if __name__ == "__main__":
     parser.add_argument("--epochs", type=int, default=30)
     parser.add_argument("--opt", type=str, default='Adam')
     parser.add_argument("--read_model", type=bool, default=False)
-    parser.add_argument("--seq_len", type=int, default=7)
+    parser.add_argument("--seq_len", type=int, default=10)
 
     config = parser.parse_args()
 
