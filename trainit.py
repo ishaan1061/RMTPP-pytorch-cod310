@@ -30,10 +30,21 @@ def data_process(file_name):
         end = seq_len
         while end <= len(line):
             start = end-seq_len
-            time_data[i].append(line[start:end])
+            time_data[i].append(np.array(line[start:end]))
             end += 1
     time_data = np.array(time_data)
-    time_duration = np.diff(time_data, axis=-1, prepend=time_data[:,:,:1])
+    time_duration =[]
+
+    for i in range(len(time_data)):
+        tt = time_data[i]
+        lis_temp = []
+        for k in tt:
+            lis_here=[]
+            lis_here = lis_here + [k[0]-k[0]]
+            for j in range(6):
+                lis_here.append(k[j+1]-k[j])
+            lis_temp.append(np.array(lis_here))
+        time_duration.append(np.array(lis_temp))
     return time_data, time_duration
 
 def type_process(file_name):
@@ -58,7 +69,7 @@ def type_process(file_name):
         end = seq_len
         while end <= len(line):
             start = end-seq_len
-            time_data[i].append(line[start:end])
+            time_data[i].append(np.array(line[start:end]))
             end += 1
     type_data = np.array(time_data)
     return type_data
