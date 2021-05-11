@@ -33,18 +33,7 @@ def data_process(file_name):
             time_data[i].append(np.array(line[start:end]))
             end += 1
     time_data = np.array(time_data)
-    time_duration =[]
-
-    for i in range(len(time_data)):
-        tt = time_data[i]
-        lis_temp = []
-        for k in tt:
-            lis_here=[]
-            lis_here = lis_here + [k[0]-k[0]]
-            for j in range(6):
-                lis_here.append(k[j+1]-k[j])
-            lis_temp.append(np.array(lis_here))
-        time_duration.append(np.array(lis_temp))
+    time_duration = np.diff(time_data, axis=-1, prepend=time_data[:,:,:1])
     return time_data, time_duration
 
 def type_process(file_name):
