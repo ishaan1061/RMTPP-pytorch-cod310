@@ -1,17 +1,13 @@
 from argparse import ArgumentParser
 import torch
 import os
-import model
-import random
 import numpy as np
-
-
-
+from scipy import integrate
+from sklearn.metrics import mean_squared_error
+from math import sqrt
+import matplotlib.pyplot as plt
 
 def data_process(file_name):
-#change the length of training sequence here
-    seq_len = 10
-#change length of training sequence here
     f = open(file_name,'r')
     time_data = []
     file_data = f.readlines()
@@ -27,19 +23,14 @@ def data_process(file_name):
     for i in range(len(time_data)):
         line = time_data[i]
         time_data[i] = []
-        end = seq_len
+        end = 1
         while end <= len(line):
-            start = end-seq_len
-            time_data[i].append(np.array(line[start:end]))
+            time_data[i].append(line[0:end])
             end += 1
     time_data = np.array(time_data)
-    time_duration = np.diff(time_data, axis=-1, prepend=time_data[:,:,:1])
-    return time_data, time_duration
+    return time_data
 
 def type_process(file_name):
-#change the length of training sequence here
-    seq_len = 10
-#change length of training sequence here
     f = open(file_name,'r')
     time_data = []
     file_data = f.readlines()
@@ -55,39 +46,29 @@ def type_process(file_name):
     for i in range(len(time_data)):
         line = time_data[i]
         time_data[i] = []
-        end = seq_len
+        end = 1
         while end <= len(line):
-            start = end-seq_len
-            time_data[i].append(np.array(line[start:end]))
+            time_data[i].append(line[0:end])
             end += 1
-    type_data = np.array(time_data)
-    return type_data
+    time_data = np.array(time_data)
+    return time_data
+
+def equation(time_var, time_cif, w, b):
+    time_guess = time_var*np.exp(time_cif+w*(time_var)+b+
+                                 (np.exp(time_cif+b)-np.exp(time_cif+w*(time_var)+b))/w)
+    return time_guess
+
+def intensities(time_var, time_cif, w, b):
+    ints = np.exp(time_cif+w*(time_var)+b)
+    return ints
 
 if __name__ == "__main__":
-    """The code below is used to set up command line inputs. """
     parser = ArgumentParser()
-    parser.add_argument("--n_class",
-                        help="Number of types in the dataset, default is 2", type=int, default=6)
-    parser.add_argument("--hid_dim", type=int, default=1)
-    parser.add_argument("--n_layers", type=int, default=1)
-    parser.add_argument("--lr", type=float, default=0.01)
-    parser.add_argument("--momentum", type=float, default=0.01)
-    parser.add_argument("--epochs", type=int, default=30)
-    parser.add_argument("--opt", type=str, default='Adam')
-    parser.add_argument("--read_model", type=bool, default=False)
-    parser.add_argument("--seq_len", type=int, default=10)
-
+    parser.add_argument("--test_start",
+                        help="Start of the prediction. For real data, we only predict the last one at -1",
+                        type=int, default=56)
     config = parser.parse_args()
 
-
-    """The code below is to get the training data"""
-    time_train, time_duration = data_process('data/cod_time.txt')
-    type_data = type_process("data/cod_event.txt")
-
-    print("training file processed.")
-
-
-    """The code below is used to set up customized training device on computer"""
     if torch.cuda.is_available():
         device = torch.device('cuda')
         print("You are using GPU acceleration.")
@@ -98,32 +79,73 @@ if __name__ == "__main__":
         print("Number of cores: ", os.cpu_count())
 
 
-    """decide whether to used pred-trained model to train again"""
-    if config.read_model:
-        model = torch.load("model.pt")
-    else:
-        model = model.RMTPP(config, device)
-        for parameter in model.parameters():
-            parameter.data.fill_(random.uniform(0.4, 0.5))
+
+    time_test = data_process("data/codtest_time.txt")
+    type_test = type_process("data/codtest_event.txt")
+    print("testing file processed.")
 
 
-    """Trianing process"""
-    for epc in range(config.epochs):
-        c = list(zip(time_train, type_data))
-        random.shuffle(c)
-        time_train, type_data = zip(*c)
-        loss_total = 0
-        loss_type = 0
-        loss_time = 0
-        for index in range(len(time_train)):
-            batch = (torch.tensor(time_duration[index], dtype=torch.float32), torch.tensor(type_data[index]))
-            loss, loss1, loss2 = model.train(batch, device)
-            loss_total += loss
-            loss_type += loss1
-            loss_time += loss2
-        print("In epochs {0}, total loss: {1}, type loss: {2}, time loss: {3}".format(
-            epc, loss_total/len(time_train), loss_type/len(time_train), loss_time/len(time_train)
-        ))
-        print("saving model")
-        torch.save(model, "model.pt")
-    print("training done!")
+    time_test = time_test[:,-1]
+    type_test = type_test[:,-1]
+
+    model = torch.load("model.pt")
+
+    index = 0
+
+#    if config.test_start == -1:
+
+#    else:
+#        index = config.test_start
+
+
+
+    actual_duration = []
+    duration_pred = []
+    intensity_pred = []
+    event_pred = []
+    while index < len(time_test):
+        time_data = np.diff(time_test[index], axis=-1, prepend=time_test[0])
+        actual_duration.append(time_data[-1])
+        batch = (torch.tensor([time_data], dtype=torch.float32), torch.tensor([type_test[index]]))
+        event, time_cif = model.predict(batch, device)
+        time_cif = time_cif.item()
+        intensity_w = model.intensity_w.item()
+        intensity_b = model.intensity_b.item()
+        func = lambda x: equation(x, time_cif, intensity_w, intensity_b)
+        duration = integrate.quad(func,0, np.inf)[0]
+        duration_pred.append(duration)
+        inten = intensities(duration, time_cif, intensity_w, intensity_b)
+        intensity_pred.append(inten)
+        event_pred.append(event[0])
+        index += 1
+
+    print("prediction on duration: ", duration_pred)
+    print("actual duration: ", actual_duration)
+    print("prediction on types: ", event_pred)
+    print("intensity: ",intensity_pred)
+    print("calculating RMSE: ")
+    rmse = sqrt(mean_squared_error(duration_pred, actual_duration))
+
+
+    f = open("predict-duration.txt", "w")
+    for t in duration_pred:
+      f.write(str(t))
+      f.write(" ")
+    f.close()
+    f = open("predict_type.txt", "w")
+    for item in event_pred:
+      f.write(str(item))
+      f.write(" ")
+    f.close()
+
+
+    print("generating_time_interval_plot:")
+    figure, ax = plt.subplots(2,2)
+    ax[0,0].plot(range(100),actual_duration)
+    ax[0,0].plot(range(100),duration_pred)
+    ax[0,1].plot(range(100),intensity_pred)
+    ax[1,0].bar(x=1, height=rmse)
+    ax[1,0].annotate(str(round(rmse,3)),xy=[1, rmse])
+    ax[1,1].set_visible(False)
+    figure.tight_layout()
+    plt.savefig("result.png")
