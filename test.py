@@ -85,8 +85,11 @@ if __name__ == "__main__":
     print("testing file processed.")
 
 
-    time_test = time_test[:,-1]
-    type_test = type_test[:,-1]
+    #change this varible equal to the row on which we want to run the model
+    indexed_row = 0
+    
+    time_test = time_test[indexed_row]
+    type_test = type_test[indexed_row]
 
     model = torch.load("model.pt")
 
